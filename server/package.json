@@ -1,0 +1,32 @@
+{
+  "name": "@shudong/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/index.ts",
+    "start": "node --env-file-if-exists=.env src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "verify": "node src/verify.ts",
+    "test:replies": "node src/test-replies.ts",
+    "test:hardening": "node src/test-hardening.ts",
+    "smoke": "node --env-file-if-exists=.env src/smoke.ts",
+    "e2e": "node --env-file-if-exists=.env src/e2e.ts",
+    "e2e:floors": "node --env-file-if-exists=.env src/e2e-floors.ts",
+    "e2e:gate": "node --env-file-if-exists=.env src/e2e-gate.ts",
+    "e2e:register": "node src/e2e-serve.ts --script src/e2e-register.ts --env TICK_INTERVAL_SEC=0 --env REGISTER_PER_IP_HOURLY=3 --env REGISTER_PER_DAY=4 --env TRUST_PROXY=1",
+    "e2e:auth": "node --env-file-if-exists=.env src/e2e-auth.ts",
+    "e2e:relations": "node --env-file-if-exists=.env src/e2e-relations.ts",
+    "e2e:proactive": "node --env-file-if-exists=.env src/e2e-proactive.ts",
+    "e2e:clock": "node --env-file-if-exists=.env src/e2e-clock.ts",
+    "e2e:migrate": "node --env-file-if-exists=.env src/e2e-migrate.ts",
+    "eval:personas": "node --env-file-if-exists=.env src/eval.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0"
+  }
+}

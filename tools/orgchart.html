@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>述洞 · 团队分工图</title>
+<style>
+  :root{
+    --ink:#0e1014; --card:#161a21; --card2:#1c212a; --line:#242a33;
+    --tx:#d9dde5; --dim:#8b93a1; --faint:#5d6673;
+    --lead:#c9a227; --baren:#7f9cf5; --bond:#4ec9a0; --ui:#e08a5f; --qc:#c98fd6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; width:1440px; padding:64px 72px 72px;
+    background:
+      radial-gradient(120% 40% at 50% -8%, rgba(255,255,255,.055), transparent 70%),
+      var(--ink);
+    color:var(--tx);
+    font-family:ui-sans-serif,system-ui,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .kicker{font-size:12px;letter-spacing:.22em;color:var(--faint);text-transform:uppercase}
+  h1{margin:14px 0 0;font-size:44px;font-weight:650;letter-spacing:.01em}
+  .sub{margin-top:14px;font-size:15px;color:var(--dim);line-height:1.7;max-width:56em}
+  .rule{height:1px;background:var(--line);margin:38px 0 0}
+
+  .flow{display:flex;align-items:center;gap:18px;margin-top:34px}
+  .chip{
+    border:1px solid var(--line);background:var(--card);border-radius:12px;
+    padding:13px 18px;font-size:14.5px;color:var(--tx);display:flex;align-items:center;gap:10px;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:99px;background:var(--dim)}
+  .arw{color:var(--faint);font-size:15px}
+  .mut{color:var(--dim);font-size:13px}
+
+  .lead{
+    margin-top:26px;border:1px solid var(--line);border-left:2px solid var(--lead);
+    background:linear-gradient(180deg,var(--card2),var(--card));border-radius:14px;
+    padding:22px 26px;display:grid;grid-template-columns:190px 1fr;gap:26px;
+  }
+  .lead h2{margin:0;font-size:19px;font-weight:600}
+  .lead .role{font-size:12.5px;color:var(--faint);letter-spacing:.14em;margin-bottom:8px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:7px 16px;font-size:13.5px;line-height:1.65}
+  .kv .k{color:var(--faint);white-space:nowrap}
+  .kv .v{color:var(--dim)}
+  .kv .v b{color:var(--tx);font-weight:600}
+
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:20px}
+  .card{
+    border:1px solid var(--line);background:var(--card);border-radius:14px;padding:20px 20px 18px;
+    position:relative;overflow:hidden;
+  }
+  .card::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:var(--ac);opacity:.85}
+  .card h3{margin:6px 0 2px;font-size:17.5px;font-weight:620}
+  .card .tag{font-size:12px;letter-spacing:.16em;color:var(--ac);text-transform:uppercase}
+  .card .lane{font-size:12.5px;color:var(--faint);font-family:ui-monospace,Consolas,monospace;
+    margin:12px 0 14px;line-height:1.6;word-break:break-all}
+  .io{font-size:13.5px;line-height:1.72;color:var(--dim)}
+  .io .lbl{color:var(--faint);font-size:11.5px;letter-spacing:.14em;display:block;margin:12px 0 3px}
+  .io b{color:var(--tx);font-weight:600}
+
+  .loop{margin-top:22px;border:1px dashed var(--line);border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .loop .t{font-size:12px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;margin-right:6px}
+  .step{font-size:13.5px;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+  .step i{color:var(--faint);font-style:normal}
+
+  .bot{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:22px}
+  .panel{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:20px 24px}
+  .panel h4{margin:0 0 12px;font-size:13px;letter-spacing:.16em;color:var(--faint);text-transform:uppercase;font-weight:600}
+  .panel ul{margin:0;padding:0;list-style:none;font-size:13.8px;line-height:1.78;color:var(--dim)}
+  .panel li{padding:8px 0;border-top:1px solid rgba(255,255,255,.05)}
+  .panel li:first-child{border-top:0;padding-top:0}
+  .panel li .n{color:var(--tx);font-weight:600;display:inline-block;min-width:5.6em}
+  .panel code{font-family:ui-monospace,Consolas,monospace;font-size:12.6px;color:#aeb6c4;background:rgba(255,255,255,.05);padding:1px 6px;border-radius:5px}
+  .warn{border-color:#4a3a12;background:linear-gradient(180deg,rgba(201,162,39,.07),var(--card))}
+  .warn h4{color:#c9a227}
+  .warn .big{font-size:14.5px;color:var(--tx);line-height:1.75}
+  .warn .small{font-size:12.8px;color:var(--dim);margin-top:10px;line-height:1.7}
+  footer{margin-top:26px;font-size:12.5px;color:var(--faint);display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+  <div class="kicker">述洞 · 开发团队</div>
+  <h1>分工图</h1>
+  <div class="sub">对你（用户）说话的只有 Lead 一个人。四个 agent 各有自己的地盘和验收证据，谁的东西坏了找得到人。所有结论都以"跑出来的证据"为准，不以谁的自我评价为准。</div>
+  <div class="rule"></div>
+
+  <div class="flow">
+    <div class="chip"><span class="dot"></span>你：需求 · 拍板 · 投诉</div>
+    <span class="arw">→</span>
+    <div class="chip" style="border-color:#3a3213"><span class="dot" style="background:var(--lead)"></span>Lead</div>
+    <span class="arw">→</span>
+    <div class="chip"><span class="dot" style="background:var(--baren)"></span><span class="mut">派活</span></div>
+    <div class="chip"><span class="dot" style="background:var(--bond)"></span><span class="mut">派活</span></div>
+    <div class="chip"><span class="dot" style="background:var(--ui)"></span><span class="mut">派活</span></div>
+    <div class="chip"><span class="dot" style="background:var(--qc)"></span><span class="mut">派活</span></div>
+    <span class="arw">→</span>
+    <div class="chip"><span class="dot" style="background:var(--lead)"></span>Lead 独立复核 · 验收 · 拼装上线</div>
+    <span class="arw">→</span>
+    <div class="chip"><span class="dot"></span>给你的东西</div>
+  </div>
+
+  <div class="lead">
+    <div>
+      <div class="role">LEAD</div>
+      <h2>我</h2>
+      <div class="mut" style="margin-top:8px">deepseek-flash</div>
+    </div>
+    <div class="kv">
+      <div class="k">职责</div><div class="v"><b>定契约（谁写哪个文件、什么形状）· 拆任务 · 独立复核 · 验收 · 拼装上线 · 对你唯一的出口</b></div>
+      <div class="k">还要做的</div><div class="v">每次改动我都自己跑一遍你关心的那条路（真库只读、真浏览器、临时库），不拿队友的口头结论当事实</div>
+      <div class="k">不做的</div><div class="v">不抢别人的地盘写代码：<code>server/src/index.ts</code> 归 bond、<code>web/</code> 归 ui、<code>personas.ts</code> 归 baren —— 一个人一个文件，避免同时改同一处</div>
+      <div class="k">欠你的</div><div class="v">"团队用不同模型、术业有专攻"的落地方案（见右下角）</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card" style="--ac:var(--baren)">
+      <div class="tag">Persona</div>
+      <h3>baren · 人设与尺子</h3>
+      <div class="lane">server/src/personas.ts<br>server/src/eval.ts</div>
+      <div class="io">
+        <span class="lbl">管什么</span>四个吧友的性格、说话方式、往事、给不给建议；以及"像不像活人"这把尺子
+        <span class="lbl">交出来的</span><b>改动后的 prompt + 评分运行 + 一批能直接读的真实回复</b>
+        <span class="lbl">证据</span>eval 退出码 + 分布对照表（长度 / 句末标点 / 讲到自己 / 给建议）+ <code>reply-24-r*.txt</code>
+      </div>
+    </div>
+    <div class="card" style="--ac:var(--bond)">
+      <div class="tag">Server</div>
+      <h3>bond · 服务端</h3>
+      <div class="lane">server/src/index.ts<br>replies.ts · relations.ts · board.ts</div>
+      <div class="io">
+        <span class="lbl">管什么</span>谁来回、回几次、什么时候回（服务端时钟）、私聊与主动消息、监工台投票口子
+        <span class="lbl">交出来的</span><b>能跑的路由与排期规则，附可重跑的测试</b>
+        <span class="lbl">证据</span><code>test:replies 11/11</code> · <code>e2e:floors 32/32</code> · <code>verify-board 18/18</code>
+      </div>
+    </div>
+    <div class="card" style="--ac:var(--ui)">
+      <div class="tag">Frontend</div>
+      <h3>ui · 前端</h3>
+      <div class="lane">web/src/**<br>web/public/progress/index.html</div>
+      <div class="io">
+        <span class="lbl">管什么</span>帖子与楼层怎么长、接一句怎么写、监工台长什么样
+        <span class="lbl">标准</span>你定的那条：<b>以 Awwwards / Webby / FWA 获奖级为标准</b>
+        <span class="lbl">证据</span>typecheck &amp; build 退出码 0 + 真浏览器截图（1440 / 1920 / 375）+ 控制台 0 错
+      </div>
+    </div>
+    <div class="card" style="--ac:var(--qc)">
+      <div class="tag">QA · 新设</div>
+      <h3>qc · 质检</h3>
+      <div class="lane">qa/rubric.md<br>qa/reviews.jsonl</div>
+      <div class="io">
+        <span class="lbl">存在的理由</span>人设的作者不能同时当考官 —— 它是<b>独立</b>那一票，不许拿 baren 的尺子当唯一标准
+        <span class="lbl">交出来的</span><b>缺陷单（逐字原文 + 归属）+ 修完后的复检</b>
+        <span class="lbl">证据</span>每条判断都有原文引用；n 小就说 n 小
+      </div>
+    </div>
+  </div>
+
+  <div class="loop">
+    <span class="t">闭环</span>
+    <span class="step">qc 开单 <i>QC-n</i></span><span class="arw">→</span>
+    <span class="step">Lead 派给归属的人</span><span class="arw">→</span>
+    <span class="step">baren / bond / ui 改</span><span class="arw">→</span>
+    <span class="step">qc 拿同一批对话复检</span><span class="arw">→</span>
+    <span class="step">Lead 独立复核后验收</span><span class="arw">→</span>
+    <span class="step">报给你</span>
+  </div>
+
+  <div class="bot">
+    <div class="panel">
+      <h4>模型怎么分（现在的真实情况）</h4>
+      <ul>
+        <li><span class="n">现在</span>全队同一个模型跑（deepseek-flash），区别只在"给它什么上下文、什么验收标准"</li>
+        <li><span class="n">本机</span>Ollama <code>qwen3.5:9b</code> 跑批量初筛 / 摸底 / 长文阅读：<b>免费、快</b>，但它给的只是线索，不是事实（它会照抄规则和例句）</li>
+        <li><span class="n">免费强模型</span>混元4 只能在网页里手动贴，没有 API —— 只适合当"手动的第二意见"</li>
+        <li><span class="n">真正变量</span>是"回帖用哪个模型"：本地小模型会复读规则，这条我还在量，量完连着上面的方案一起给你</li>
+      </ul>
+    </div>
+    <div class="panel warn">
+      <h4>⚠ 一件欠你的事（也是这套分工的短板）</h4>
+      <div class="big">你问过："任务分配什么模型做什么方面比较好" —— 我核实完机制了，<b>方案还没给你</b>。</div>
+      <div class="small">短板明说：qc 和作者现在跑同一个模型，独立性有限；真正独立的评委是你，和那条"混元4 手动贴"的路。等语料到位，质检这一环我会按"能不能用不同的模型来判"再算一次账给你。</div>
+    </div>
+  </div>
+
+  <footer>
+    <span>述洞 · 团队分工图</span>
+    <span>更新 2026-10-05 · 数据以监工台 board.json 为准</span>
+  </footer>
+</body>
+</html>

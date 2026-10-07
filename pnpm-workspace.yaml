@@ -1,0 +1,7 @@
+packages:
+  - server
+  - web
+
+# pnpm 10+ 默认不跑依赖的构建脚本。esbuild（vite 的依赖）需要它。
+onlyBuiltDependencies:
+  - esbuild

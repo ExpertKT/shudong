@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>述洞 · 监工台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1014'/><rect x='10' y='7' width='2' height='18' fill='%233b4149'/><rect x='10' y='13' width='8' height='2' fill='%23b07a3c'/></svg>">
+<style>
+  :root{
+    color-scheme:dark;
+    --ink:#0e1014; --card:#161a21; --card-2:#1c212a;
+    --fg:#eef1f5; --fg-2:rgba(238,241,245,.72); --fg-3:rgba(238,241,245,.45);
+    --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.13);
+    --wait:#b07a3c; --ok:#3f8f7a; --bad:#c2504e;
+    --lead:#b07a3c; --bond:#3f8f7a; --ui:#8f6bb5; --baren:#c2504e;
+    --sans:ui-sans-serif,system-ui,"Segoe UI","Microsoft YaHei",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Consolas,"Cascadia Mono",monospace;
+    --pad:clamp(1rem,2.4vw,2.25rem);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--ink);color:var(--fg);font:15px/1.6 var(--sans);
+    background-image:radial-gradient(120% 55% at 50% -12%,rgba(255,255,255,.055),transparent 62%);
+    background-attachment:fixed;
+    /* 板子里会出现 64 位的 hash、长路径这种「一整块没有断点」的词：默认它们会把卡片撑破，
+       一路顶到 document 变成横向溢出（375 下还会把移动端布局视口撑到 581）。anywhere 会继承，
+       只在整词放不下时才断，顺便让 min-content 变小 —— 这才是真正修掉溢出的那一半。 */
+    overflow-wrap:anywhere;
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit}
+  :where(button,a,summary):focus-visible{outline:2px solid rgba(255,255,255,.4);outline-offset:2px;border-radius:6px}
+  ::selection{background:rgba(176,122,60,.35)}
+
+  /* 1920 下不能只是中间一条窄柱：整幅用 1720 上限吃满宽屏，真正的可读性靠卡片内的行长控制 */
+  .wrap{max-width:1720px;margin:0 auto;padding-inline:var(--pad)}
+
+  /* ── 顶栏 ───────────────────────────────────────────── */
+  .top{padding-top:clamp(1.25rem,3vw,2.25rem)}
+  .brandline{display:flex;flex-wrap:wrap;align-items:baseline;gap:.75rem 1rem}
+  .brand{font-size:15px;font-weight:650;letter-spacing:.02em}
+  .brand .hole{display:inline-block;width:9px;height:9px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#33393f,#0c0e12 70%);box-shadow:0 0 0 1px rgba(255,255,255,.12);
+    margin-right:.5rem;vertical-align:1px}
+  .sub{margin:.5rem 0 0;font-size:13.5px;color:var(--fg-2);letter-spacing:.01em;max-width:70ch}
+  .sub::before{content:"";display:inline-block;width:.55rem;height:1px;background:rgba(176,122,60,.85);
+    vertical-align:.32em;margin-right:.5rem}
+  .goal{margin:.45rem 0 0;font-size:clamp(15px,1.5vw,17px);color:var(--fg);max-width:62ch}
+  .fresh{margin-left:auto;display:inline-flex;align-items:center;gap:.5rem;font-size:12.5px;color:var(--fg-3);
+    border:1px solid var(--line);background:var(--card);border-radius:999px;padding:.3rem .7rem;white-space:nowrap}
+  .fresh b{color:var(--fg-2);font-weight:550}
+  .fresh .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+  .fresh[data-stale="1"]{border-color:rgba(176,122,60,.45);background:rgba(176,122,60,.10)}
+  .fresh[data-stale="1"] .dot{background:var(--wait)}
+  .updated{margin:.6rem 0 0;font-size:12.5px;color:var(--fg-3)}
+  .updated .warn{color:var(--wait)}
+
+  /* 锚点导航 */
+  nav.zones{margin-top:1.1rem;border-block:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(14,16,20,.92),rgba(14,16,20,.72));backdrop-filter:blur(10px);
+    position:sticky;top:0;z-index:20}
+  nav.zones .inner{display:flex;gap:.35rem;overflow-x:auto;scrollbar-width:none;padding-block:.5rem}
+  nav.zones .inner::-webkit-scrollbar{display:none}
+  nav.zones a{display:inline-flex;align-items:center;gap:.45rem;flex:none;text-decoration:none;
+    font-size:13px;color:var(--fg-2);border:1px solid transparent;border-radius:8px;padding:.32rem .6rem;transition:.16s}
+  nav.zones a:hover{background:rgba(255,255,255,.05);border-color:var(--line);color:var(--fg)}
+  nav.zones a .n{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--fg-3)}
+  nav.zones a[data-wait="1"]{color:var(--fg);border-color:rgba(176,122,60,.5);background:rgba(176,122,60,.12)}
+  nav.zones a[data-wait="1"] .n{color:var(--wait)}
+
+  /* ── 洞壁：一条竖脊，凿痕长在区块标题上 ─────────── */
+  main{position:relative;padding-bottom:clamp(3rem,6vw,5rem)}
+  main::before{content:"";position:absolute;top:0;bottom:2rem;left:0;width:1px;
+    background:linear-gradient(180deg,transparent,rgba(255,255,255,.10) 4%,rgba(255,255,255,.055) 92%,transparent)}
+  /* scroll-margin-top：跳锚点时给顶上那条钉住的导航让位，标题不许被压住 */
+  .zone{position:relative;padding-top:clamp(2rem,4.2vw,3.5rem);scroll-margin-top:4.5rem}
+  /* 入场动画只在第一遍画的时候放；5 秒轮询若发现板子变了会整页重画，那时不许再抖一次 */
+  main.boot .zone{animation:rise .5s cubic-bezier(.22,.7,.28,1) both;animation-delay:calc(var(--i,0) * 55ms)}
+  .zh{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .8rem;position:relative;padding-left:1.1rem}
+  .zh::before{content:"";position:absolute;left:0;top:.62em;width:.7rem;height:1px;background:rgba(255,255,255,.28)}
+  .zh h2{margin:0;font-size:clamp(17px,1.8vw,19.5px);font-weight:650;letter-spacing:.01em}
+  .zh .n{font-size:12px;color:var(--fg-3);font-variant-numeric:tabular-nums;border:1px solid var(--line);
+    border-radius:999px;padding:.1rem .45rem}
+  .zh .hint{margin:0;font-size:12.5px;color:var(--fg-3);flex-basis:100%}
+  .zb{margin-top:.9rem;display:grid;gap:.75rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,19rem),1fr))}
+  .zb.one{grid-template-columns:minmax(0,1fr)}
+  .zb.two{grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))}
+  .zb.wide{grid-template-columns:repeat(auto-fill,minmax(min(100%,26rem),1fr))}
+
+  @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+  @keyframes flash{from{background-color:rgba(255,255,255,.09)}to{background-color:rgba(255,255,255,0)}}
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important;animation-delay:0ms !important;transition-duration:.001ms !important}
+  }
+
+  /* ── 卡片 ───────────────────────────────────────────── */
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:.9rem 1.05rem;transition:transform .16s ease,border-color .16s ease,background-color .16s ease}
+  .card:hover{transform:translateY(-1px);border-color:var(--line-2);background:var(--card-2)}
+  .card h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.005em;text-wrap:pretty}
+  .card .meta{margin:.4rem 0 0;font-size:12.5px;color:var(--fg-3);display:flex;flex-wrap:wrap;gap:.3rem .6rem;align-items:center}
+  .card .note{margin:.55rem 0 0;font-size:13.5px;color:var(--fg-2);text-wrap:pretty}
+  .who{display:inline-flex;align-items:center;gap:.35rem}
+  .who i{width:7px;height:7px;border-radius:50%;background:var(--c,var(--fg-3));flex:none;
+    box-shadow:0 0 0 1px rgba(255,255,255,.10)}
+  .tid{font-variant-numeric:tabular-nums;color:var(--fg-3)}
+  .state{font-size:11.5px;border-radius:999px;padding:.08rem .45rem;border:1px solid var(--line);color:var(--fg-2)}
+  .state[data-s="doing"]{border-color:rgba(63,143,122,.5);background:rgba(63,143,122,.12);color:#9fd8c6}
+  .state[data-s="blocked"]{border-color:rgba(194,80,78,.5);background:rgba(194,80,78,.12);color:#eaa9a7}
+  .state[data-s="wait"]{border-color:rgba(176,122,60,.5);background:rgba(176,122,60,.12);color:#e0bd8e}
+  .state[data-s="done"]{border-color:var(--line);color:var(--fg-3)}
+  .state[data-s="bad"]{border-color:rgba(194,80,78,.5);background:rgba(194,80,78,.12);color:#eaa9a7}
+
+  /* ── 第一屏：等你拍板 + 现在在做的 ──────────────── */
+  .first{display:grid;gap:clamp(1rem,2.4vw,2rem);grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);align-items:start}
+  .first .zone{padding-top:clamp(1.5rem,3vw,2.5rem)}
+  /* 右栏也立一道脊。只在 ≥1024（真的两栏）时生：窄屏单列时再冒一道就成"两道脊"了。 */
+  @media (min-width:1024px){
+    .first > .zone + .zone{position:relative;padding-left:1.15rem}
+    .first > .zone + .zone::before{content:"";position:absolute;inset:0 auto 0 0;width:1px;
+      background:linear-gradient(180deg,transparent,rgba(255,255,255,.11) 8%,rgba(255,255,255,.11) 92%,transparent)}
+  }
+  @media (max-width:1023px){ .first{grid-template-columns:minmax(0,1fr)} }
+  /* ≥1560：第一屏两栏各自再分两列。1920 下卡片不会被拉成 900px 的长条，
+     宽屏上「等你拍板 / 在做」都是一眼两张，而且两栏高度更接近。 */
+  @media (min-width:1560px){
+    .first .zb.one{grid-template-columns:repeat(auto-fill,minmax(min(100%,24rem),1fr))}
+  }
+
+  /* 拍板卡（产品核心动作） */
+  .ask{background:linear-gradient(180deg,rgba(176,122,60,.075),transparent 42%),var(--card);
+    border:1px solid rgba(176,122,60,.28);border-radius:16px;padding:1.1rem 1.2rem 1.2rem}
+  .ask.is-decided{border-color:var(--line);background:var(--card)}
+  /* 作废的题：还留在板上（历史要留痕），但灰掉、标出改投哪道、不许投 —— 只改渲染，不动数据 */
+  .ask.is-superseded{opacity:.6;border-style:dashed;border-color:var(--line);background:var(--card)}
+  .ask.is-superseded .q{text-decoration:line-through;text-decoration-color:rgba(255,255,255,.32);text-decoration-thickness:1px}
+  .gone{margin:.75rem 0 0;display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap;
+    border:1px dashed rgba(176,122,60,.55);background:rgba(176,122,60,.09);border-radius:11px;padding:.55rem .7rem}
+  .gone .k{flex:none;font-size:12px;color:#e8c79b;border:1px solid rgba(176,122,60,.5);border-radius:999px;padding:.05rem .45rem}
+  .gone .t{font-size:13px;color:var(--fg-2);min-width:0}
+  .opt[disabled],.item[disabled]{cursor:not-allowed}
+  .opt[disabled]:hover,.item[disabled]:hover{transform:none;border-color:var(--line);background:var(--card-2)}
+  .opt[disabled] .tick{border-color:rgba(255,255,255,.16)}
+  .ask .q{margin:0;font-size:16.5px;line-height:1.5;font-weight:600;text-wrap:pretty}
+  .ask .meta{margin:.6rem 0 0;font-size:12.5px;color:var(--fg-3);display:flex;flex-wrap:wrap;gap:.3rem .7rem;align-items:center}
+  .ask .meta .done{color:#9fd8c6}
+  .opts{margin:.95rem 0 0;display:grid;gap:.5rem}
+  .opt{display:flex;gap:.7rem;align-items:flex-start;text-align:left;width:100%;cursor:pointer;
+    background:var(--card-2);border:1px solid var(--line);border-radius:11px;padding:.6rem .75rem;transition:.16s}
+  .opt:hover{border-color:var(--line-2);background:#20262f;transform:translateY(-1px)}
+  .opt .tick{width:16px;height:16px;flex:none;margin-top:.15rem;border-radius:50%;border:1px solid rgba(255,255,255,.28);
+    display:grid;place-items:center;font-size:11px;line-height:1;color:transparent;transition:.16s}
+  .opt .lab{font-size:14px;font-weight:550}
+  .opt .hint{display:block;font-size:12.5px;color:var(--fg-3);margin-top:.15rem}
+  .opt .mark{display:block;font-size:11.5px;color:var(--wait);margin-top:.3rem}
+  .opt:hover .tick{border-color:rgba(255,255,255,.5)}
+  .opt[aria-pressed="true"]{border-color:rgba(176,122,60,.6);background:rgba(176,122,60,.13)}
+  .opt[aria-pressed="true"] .tick{background:var(--wait);border-color:var(--wait);color:#1a1206}
+  .opt[aria-pressed="true"] .lab{color:#f0d9b6}
+  .opt[data-busy="1"]{opacity:.65;cursor:progress}
+  .opt[data-busy="1"] .mark{color:var(--fg-3)}
+  .ask-fig{margin:.85rem 0 0}
+  .ask-fig img{display:block;max-width:100%;max-height:70vh;width:auto;height:auto;border-radius:10px;border:1px solid var(--line)}
+  .vote-fail{margin:.85rem 0 0;border:1px solid rgba(194,80,78,.45);background:rgba(194,80,78,.10);
+    border-radius:11px;padding:.65rem .75rem}
+  .vote-fail .msg{margin:0;font-size:13px;color:#eaa9a7}
+  .copyline{margin:.5rem 0 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .copyline code{font:12.5px/1.5 var(--mono);background:rgba(0,0,0,.35);border:1px solid var(--line);
+    border-radius:8px;padding:.3rem .5rem;color:var(--fg-2);word-break:break-all}
+  .copyline button{cursor:pointer;font-size:12.5px;border:1px solid var(--line-2);background:var(--card-2);
+    border-radius:8px;padding:.3rem .6rem;transition:.16s}
+  .copyline button:hover{background:#242b34}
+
+  /* ── 拍板时想留一句（可选）─────────────────────── */
+  .note-row{margin:.7rem 0 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .note-row label,.note-row .note-lab{font-size:12.5px;color:var(--fg-3);white-space:nowrap}
+  .note-row input{flex:1;min-width:0;font:inherit;font-size:12.5px;color:var(--fg);
+    background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:8px;padding:.38rem .6rem}
+  .note-row input::placeholder{color:var(--fg-3)}
+  .note-row input:focus{outline:none;border-color:var(--line-2);background:rgba(0,0,0,.3)}
+  .note-row .saved{font-size:12.5px;color:var(--wait)}
+
+  /* ── 走过的路：脊上的凿口 ───────────────────────── */
+  .path{position:relative;margin-left:.35rem;padding-left:1.15rem;display:grid;gap:.9rem;
+    grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr))}
+  .path::before{content:"";position:absolute;left:0;top:.45rem;bottom:.45rem;width:1px;background:rgba(255,255,255,.11)}
+  .mile{position:relative}
+  .mile::before{content:"";position:absolute;left:-1.15rem;top:.52em;width:.85rem;height:1px;background:rgba(255,255,255,.22)}
+  .mile b{font-size:14px;font-weight:600}
+  .mile .note{margin:.2rem 0 0;font-size:13px;color:var(--fg-3);text-wrap:pretty}
+  @media (max-width:640px){ .path{grid-template-columns:minmax(0,1fr)} }
+
+  /* ── 欠账 ───────────────────────────────────────── */
+  .owe{display:flex;gap:.75rem;justify-content:space-between;align-items:baseline;
+    border-top:1px solid var(--line);padding:.7rem .15rem}
+  .owe .q{font-size:14px;text-wrap:pretty}
+  .owe .since{font-size:12px;color:var(--fg-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+  /* 一整行拉到 1300px 宽、日期甩到最右边就成了后台表格：收窄 + 每一条凿一道口，让它还是墙上的东西 */
+  .zb.one .owe{max-width:44rem;position:relative;padding-left:1rem}
+  .zb.one .owe::before{content:"";position:absolute;left:0;top:1.12em;width:.6rem;height:1px;background:rgba(255,255,255,.24)}
+
+  /* ── 汇报 ───────────────────────────────────────── */
+  .rep h3{font-size:14.5px}
+  .rep .text{margin:.5rem 0 0;font-size:13.5px;color:var(--fg-2);text-wrap:pretty}
+  details.more{margin-top:.75rem;border-top:1px solid var(--line);padding-top:.75rem}
+  details.more summary{cursor:pointer;font-size:13px;color:var(--fg-2);list-style:none}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more summary::before{content:"▸ ";color:var(--fg-3)}
+  details.more[open] summary::before{content:"▾ "}
+  details.more .zb{margin-top:.75rem}
+
+  /* ── 团队 ───────────────────────────────────────── */
+  /* 任何宽度都不许只剩一张窄卡孤零零占一行：≥1200 一排刚好塞满（auto-fit 把余数撑满），
+     760–1199 让每行三张（5 个人＝3+2），<760 一列 —— 每张都撑满整行，不留半排。 */
+  .zb.crew-body{display:flex;flex-wrap:wrap}
+  .zb.crew-body > .card{flex:1 1 15rem;min-width:0}
+  @media (max-width:759px){ .zb.crew-body > .card{flex:1 1 100%} }
+  @media (min-width:1200px){ .zb.crew-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))} }
+  .crew .role{margin:.3rem 0 0;font-size:12.5px;color:var(--fg-3)}
+  .crew .scope{margin:.5rem 0 0;font-size:13px;color:var(--fg-2);text-wrap:pretty}
+  .crew-tasks{margin:.7rem 0 0;padding-top:.55rem;border-top:1px solid var(--line);font-size:12.5px;color:var(--fg-2)}
+  .crew-task{display:flex;gap:.45rem;align-items:flex-start;margin:.3rem 0 0}
+  .crew-task .tag{flex:none;color:var(--wait);font-size:11px}
+  .crew-activity{margin:.7rem 0 0;font-size:12px;color:var(--fg-3)}
+  .crew-activity.quiet{color:#e8c76b}
+
+  /* ── 页脚 ───────────────────────────────────────── */
+  .foot{margin-top:clamp(2.5rem,5vw,4rem);border-top:1px solid var(--line);padding-top:1rem;
+    font-size:12.5px;color:var(--fg-3);display:grid;gap:.4rem}
+  .foot b{color:var(--fg-2);font-weight:550}
+  .foot .hand{border-left:1px solid rgba(176,122,60,.5);padding-left:.6rem;color:var(--fg-2)}
+  .net{border:1px solid rgba(194,80,78,.45);background:rgba(194,80,78,.10);border-radius:11px;
+    padding:.7rem .8rem;font-size:13px;color:#eaa9a7;margin-top:1rem}
+  .empty{font-size:13px;color:var(--fg-3);border:1px dashed var(--line);border-radius:11px;padding:.8rem 1rem}
+
+  /* ── 要你定的事：专属一屏（#asks）──────────────────────
+     这一屏只放"要他拍板 / 要他动手"的事。入口是顶栏那颗按钮（任何宽度都在），
+     返回也是同一颗 —— 进出都在同一个位置。整屏用 hash 切，不新开页面：
+     5173 那版和 file:// 单开的 board.html 都认。 */
+  .gate{display:inline-flex;align-items:center;gap:.5rem;flex:none;text-decoration:none;
+    font-size:13.5px;font-weight:600;color:#f6e2c4;background:rgba(176,122,60,.18);
+    border:1px solid rgba(176,122,60,.6);border-radius:999px;padding:.5rem .9rem;transition:.16s}
+  .gate:hover{background:rgba(176,122,60,.3);border-color:rgba(176,122,60,.85)}
+  .gate .n{font-size:12px;font-variant-numeric:tabular-nums;color:#e8c79b;
+    border:1px solid rgba(176,122,60,.5);border-radius:999px;padding:.06rem .45rem}
+  .gate[data-mode="asks"]{color:var(--fg);background:var(--card);border-color:var(--line-2)}
+  .gate[data-mode="asks"]:hover{background:var(--card-2)}
+  @media (max-width:520px){ .gate{font-size:12.5px;padding:.45rem .7rem} }
+  /* 这一屏里的次级文字整体提亮一档（板上其它地方不动）：小字也得 ≥4.5:1 */
+  body.asks-screen{--fg-3:rgba(238,241,245,.64)}
+  body.asks-screen #asks .zb{max-width:56rem}
+  #asks textarea::placeholder,#asks input::placeholder{color:var(--fg-3)}
+  #asks.zone{padding-top:.2rem}
+  .ask-actions{margin:.85rem 0 0;display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+  .send{cursor:pointer;font-size:14px;font-weight:600;color:#f6e2c4;background:rgba(176,122,60,.2);
+    border:1px solid rgba(176,122,60,.6);border-radius:10px;padding:.55rem 1rem;transition:.16s}
+  .send:hover{background:rgba(176,122,60,.32)}
+  .send[disabled]{opacity:.45;cursor:not-allowed}
+  .picked{font-size:12.5px;color:var(--fg-2);font-variant-numeric:tabular-nums}
+  .sent{margin:.5rem 0 0;font-size:12.5px;color:#9fd8c6;font-variant-numeric:tabular-nums}
+  .grp{margin:1rem 0 0;border-top:1px solid var(--line);padding-top:.9rem}
+  .grp .post{margin:0;display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+  .grp .postn{font-size:12.5px;color:var(--fg-3)}
+  .grp .post-text{margin:.35rem 0 0;font-size:13.5px;color:var(--fg-2);text-wrap:pretty}
+  .items{margin:.65rem 0 0;display:grid;gap:.45rem}
+  .item{display:flex;gap:.7rem;align-items:flex-start;text-align:left;width:100%;cursor:pointer;
+    background:var(--card-2);border:1px solid var(--line);border-radius:11px;padding:.6rem .75rem;transition:.16s}
+  .item:hover{border-color:var(--line-2);background:#20262f}
+  .item .tick{width:19px;height:19px;flex:none;margin-top:.1rem;border-radius:6px;border:1px solid rgba(255,255,255,.3);
+    display:grid;place-items:center;font-size:12px;line-height:1;color:transparent;transition:.16s}
+  .item .body{min-width:0}
+  .item .by{display:block;font-size:12.5px;color:var(--fg-3);margin-bottom:.15rem}
+  .item .txt{font-size:14px;color:var(--fg-2);text-wrap:pretty}
+  .item[aria-pressed="true"]{border-color:rgba(176,122,60,.65);background:rgba(176,122,60,.14)}
+  .item[aria-pressed="true"] .tick{background:var(--wait);border-color:var(--wait);color:#1a1206}
+  .item[aria-pressed="true"] .txt{color:#f6e2c4}
+  .ask-text{margin:.9rem 0 0;display:grid;gap:.45rem}
+  .ask-text textarea{width:100%;min-height:7.5rem;resize:vertical;font:inherit;font-size:14.5px;line-height:1.65;
+    color:var(--fg);background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:11px;padding:.65rem .75rem}
+  .ask-text textarea:focus{outline:none;border-color:var(--line-2);background:rgba(0,0,0,.32)}
+  .ask-text .hint{margin:0;font-size:12.5px;color:var(--fg-3)}
+  /* 小字用浅一档的琥珀：--wait 在卡片底色上只有 3.7:1，读不清 */
+  .opt .mark,.note-row .saved{color:#e8c79b}
+  .more-asks{margin:.7rem 0 0;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;
+    background:rgba(255,255,255,.03);border:1px dashed var(--line);border-radius:11px;padding:.55rem .7rem}
+  .more-asks .k{flex:none;font-size:12px;color:#e8c79b;border:1px solid rgba(176,122,60,.5);border-radius:999px;padding:.05rem .45rem}
+  .more-asks .t{font-size:13px;color:var(--fg-2);min-width:0}
+  .gate-inline{cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:#f6e2c4;background:rgba(176,122,60,.2);
+    border:1px solid rgba(176,122,60,.6);border-radius:9px;padding:.4rem .7rem;min-height:28px}
+  .gate-inline:hover{background:rgba(176,122,60,.32)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="wrap">
+    <div class="brandline">
+      <div class="brand"><span class="hole" id="hole"></span><span id="title">述洞 · 监工台</span></div>
+      <div class="fresh" id="fresh" hidden><span class="dot"></span><span id="freshText"></span></div>
+      <a class="gate" id="gate" href="#asks" hidden><span id="gateText"></span><span class="n" id="gateN" hidden></span></a>
+    </div>
+    <p class="sub" id="subtitle" hidden></p>
+    <p class="goal" id="goal"></p>
+    <p class="updated" id="updated"></p>
+  </div>
+</div>
+<!-- 导航必须是 body 的直接子元素：粘性定位只在自己父盒子里活动。
+     以前它包在 .top 里，.top 一滚出屏幕导航就跟着走了（实测 navBottom=-5974，等于没粘）。
+     现在父盒子是整个 body，才真钉在顶上 -->
+<nav class="zones" id="nav"><div class="wrap inner" id="navInner"></div></nav>
+<main class="wrap" id="main"></main>
+<footer class="wrap foot" id="foot"></footer>
+<script>
+"use strict";
+/* 监工台 — 数据由 Lead 手填（board.json / 内联快照），这页只负责把它摆清楚。
+   拍板是这一页唯一要写数据的动作。 */
+const PAGE_VERSION = "2026-10-05 19:39";   // 发货时戳上：一眼看出你打开的是哪一版页面（每次改都要换）
+const OWNER = { Lead: "var(--lead)", bond: "var(--bond)", ui: "var(--ui)", baren: "var(--baren)" };
+const STATE = { doing: "在做", blocked: "卡住", wait: "等你", done: "完了", queued: "排队" };
+
+/* key = board.json 的 sections 里对应的那把钥匙：Lead 改了标题就跟着改（没有 key 或没填就退回这里的默认值） */
+const ZONES = [
+  { id: "ask",     key: "waitingOnYou", title: "等你拍板", hint: "只有你能定的事：投票点一下就算投出去了；勾选和写一段在「要你定的事」那屏。", nav: "等你定" },
+  { id: "now",     key: "now",       title: "现在在做的", hint: "正在动的东西。", nav: "在做" },
+  { id: "queued",  key: "queued",    title: "排队的", hint: "定了顺序，还没轮到。", nav: "排队" },
+  { id: "done",    key: "done",      title: "做完的", hint: "已经落地、算数的活；最近的在前面。", nav: "做完" },
+  { id: "owed",    key: "owed",      title: "欠着的", hint: "说好要做、还挂着的事。", nav: "欠账" },
+  { id: "path",    key: "milestones",title: "走过的路", hint: "已经落地、算数的节点。", nav: "走过" },
+  { id: "reports", key: "reports",   title: "汇报", hint: "队友交回来的话，最新的在上面。", nav: "汇报" },
+  { id: "crew",    key: "crew",      title: "谁在干", hint: "各管一摊，名字后面写着谁管哪一摊。", nav: "团队" },
+];
+
+/* ── 小工具 ─────────────────────────────────────── */
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "text") el.textContent = v;
+    else if (k === "html") el.innerHTML = v;
+    else if (k === "style") el.setAttribute("style", v);
+    else if (typeof v === "function") el[k] = v;      // onclick 之类：必须赋函数；setAttribute 会把函数变成一句什么都不干的内联字符串
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid);
+  return el;
+}
+const frag = (kids) => { const f = document.createDocumentFragment(); f.append(...kids.filter(Boolean)); return f; };
+/* append(null) 会插进一个字面量 "null" —— 有条件的地方一律走这个 */
+const add = (parent, ...kids) => parent.append(...kids.filter((k) => k !== null && k !== undefined && k !== false));
+
+function minutesAgo(ts) {
+  if (typeof ts !== "string") return null;
+  const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/);
+  if (!m) return null;
+  const at = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), 0, 0);
+  if (isNaN(at)) return null;
+  return Math.max(0, Math.round((Date.now() - at.getTime()) / 60000));
+}
+function humanGap(min) {
+  if (min === null) return "";
+  if (min < 1) return "刚刚";
+  if (min < 60) return min + " 分钟前";
+  const hr = Math.floor(min / 60), d = Math.floor(hr / 24);
+  if (d >= 1) return d + " 天前";
+  return hr + " 小时前";
+}
+function clockText(at) {
+  const d = new Date(at);
+  const p = (n) => String(n).padStart(2, "0");
+  return p(d.getHours()) + ":" + p(d.getMinutes());
+}
+// 相对浏览器当前时间计算，避免用任务写入时间猜测队员是否在工作。
+function crewActivity(name, reports) {
+  const aliases = { qc: "qc2-luna", baren: "baren-luna", ui: "ui-luna" };
+  const normalize = (value) => String(value || "").trim().toLowerCase().replace(/-luna$/, "");
+  const wanted = normalize(name);
+  const found = arr(reports).filter((r) => {
+    if (typeof r?.by !== "string" || minutesAgo(r.at) === null) return false;
+    const by = normalize(r.by);
+    return by === wanted || aliases[by] === name;
+  });
+  if (!found.length) return { text: "无汇报记录", quiet: false };
+  const latest = found.reduce((a, b) => (String(a.at) >= String(b.at) ? a : b));
+  const gap = minutesAgo(latest.at);
+  return { text: "最近汇报 " + humanGap(gap), quiet: gap > 30 };
+}const arr = (x) => (Array.isArray(x) ? x : []);
+
+/* ── 口子：先同源（5173 走 vite 代理），不行退到本机 8787 ── */
+// 快照的数据是生成器塞在 body 收尾标签前最后一段脚本挂上来的 ⇒ 只能现问，不能在这行定死
+// （别在这页的任何注释里写 body 的收尾标签 —— 有的工具按第一个匹配插东西，会插进注释里）
+const snap = () => !!window.__BOARD__;
+const OVERRIDE = typeof window.__BOARD_API__ === "string" ? window.__BOARD_API__.replace(/\/$/, "") : "";
+// 5173 下走同源相对路径（vite 代理）；file:// 单开时跨源，落到 127.0.0.1:8787（服务端已开 CORS + Origin 白名单）
+const bases = () => (OVERRIDE ? [OVERRIDE] : (snap() ? ["http://127.0.0.1:8787"] : [""]));
+function urlFor(rest, base) { return (base || "") + "/api" + rest; }
+async function api(rest, init) {
+  let lastErr = null;
+  for (const base of bases()) {
+    try {
+      const r = await fetch(urlFor(rest, base), Object.assign({ cache: "no-store" }, init));
+      if (r.ok) return await r.json();
+      let why = "HTTP " + r.status, body = null;
+      try { body = await r.json(); } catch (e) {}
+      if (body && body.error) { why = body.error; }
+      const err = new Error(why);
+      err.http = r.status; err.server = true;
+      throw err;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("连不上");
+}
+
+/* 网络类失败的自动重试：开发模式下服务端是 node --watch，改一行就重启一两秒，
+   不能因为这一两秒把用户的一票丢掉。服务端明确回话（4xx/5xx）不重试，直接照实说。 */
+const RETRY_MS = [400, 900, 2000];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function netWhy() { return "服务端刚重启过或没起来（开发模式下改一行服务端代码就会重启一两秒）"; }
+async function apiRetry(rest, init, onRetry) {
+  let last = null;
+  for (let i = 0; i <= RETRY_MS.length; i++) {
+    try { return await api(rest, init); }
+    catch (e) {
+      last = e;
+      if (e && e.server) throw e;               // 服务端拒绝了：别拿重试盖过去
+      if (i < RETRY_MS.length) { if (onRetry) onRetry(i + 1); await sleep(RETRY_MS[i]); }
+    }
+  }
+  throw last;
+}
+
+/* ── 拍板 ───────────────────────────────────────── */
+let decisions = [];
+const votes = new Map();   // id -> {choice, at, note}
+function applyDecisions(list) {
+  decisions = arr(list).filter((d) => d && d.id);
+  for (const d of decisions) {
+    if (!d || !d.id) continue;
+    const prev = votes.get(d.id);
+    if (!prev || (Number(d.at) || 0) >= (Number(prev.at) || 0)) {
+      votes.set(d.id, { choice: d.choice, at: d.at,
+        note: d.note !== undefined ? d.note : (prev && prev.note) });
+    }
+  }
+}
+function votePayload(id, choice, note) {
+  const body = { id: id, choice: choice };
+  if (note) body.note = note;
+  return body;
+}
+async function sendVote(id, choice, note, onRetry) {
+  const body = votePayload(id, choice, note);
+  // 5173 下同源相对路径；file:// 单开走 127.0.0.1:8787（服务端已给 /api/board/* 开了 CORS + Origin 白名单，
+  // null 源就是单开那版），两条都是普通的 JSON fetch，拿得到真回执 —— 不猜、不盲投。
+  try {
+    const j = await apiRetry("/board/decision", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    }, onRetry);
+    if (j && j.decision) applyDecisions([j.decision]);
+    else applyDecisions([{ id: id, choice: choice, at: Date.now(), note: note }]);
+    return { ok: true };
+  } catch (e) {
+    if (e && e.server) return { ok: false, why: e.message || ("服务端说 HTTP " + e.http) };
+    return { ok: false, why: netWhy() };       // 网络类：说人话，不说 "Failed to fetch"
+  }
+}
+
+/* ── 渲染 ───────────────────────────────────────── */
+const el = (id) => document.getElementById(id);
+/* 专属那一屏走 hash（#asks），不新开页面：5173 那版与 file:// 单开的 board.html 都认 —— 
+   board.html 只内联 board.json，新开一个 HTML 在那版里看不见。 */
+const asksMode = () => location.hash.replace(/^#/, "") === "asks";
+let lastData = "", lastDec = "", painted = 0;
+let zoneIndex = 0;
+
+/* 分区标题以 board.json 的 sections 为准（Lead 手写），没给才退回默认 —— 数据里的字不许白写 */
+function zoneTitle(z) {
+  const s = (lastPayload && lastPayload.sections) || {};
+  const t = s[z.key];
+  return typeof t === "string" && t.trim() ? t.trim() : z.title;
+}
+function zoneShell(z) {
+  const body = h("div", { class: "zb", id: "zb-" + z.id });
+  const n = h("span", { class: "n", text: "0" });
+  const head = h("div", { class: "zh" },
+    h("h2", { text: zoneTitle(z) }),
+    n,
+    h("p", { class: "hint", text: z.hint }));
+  const sec = h("section", { class: "zone", id: z.id, style: "--i:" + (zoneIndex++) }, head, body);
+  return { sec, body, n };
+}
+
+function whoTag(slug, name) {
+  const c = OWNER[name] || OWNER[slug] || "var(--fg-3)";
+  return h("span", { class: "who", style: "--c:" + c }, h("i"), h("span", { text: name }));
+}
+function stateTag(s) {
+  const raw = String(s || "");
+  const k = /等|block|卡/.test(raw) ? "wait"
+    : /在做|doing|进行/.test(raw) ? "doing"
+    : /判否|否|废|撤/.test(raw) ? "bad"
+    : /完|done|收干净|上线|过了|全绿/.test(raw) ? "done" : "queued";
+  return h("span", { class: "state", "data-s": k, text: STATE[raw] || raw || "" });
+}
+function taskCard(t, opts) {
+  const meta = [
+    t.id ? h("span", { class: "tid", text: t.id }) : null,
+    t.owner ? whoTag(t.owner, t.owner) : null,
+    opts && opts.hideState ? null : stateTag(t.state),
+  ].filter(Boolean);
+  return h("article", { class: "card" },
+    h("h3", { text: t.title || "(没写标题)" }),
+    meta.length ? h("p", { class: "meta" }, frag(meta)) : null,
+    t.note ? h("p", { class: "note", text: t.note }) : null);
+}
+
+function askCard(a, cardMode) {
+  const v = votes.get(a.id);
+  const card = h("article", { class: "ask" + (v ? " is-decided" : "") , "data-ask": a.id });
+  const meta = [
+    h("span", { class: "tid", text: a.id || "" }),
+    h("span", { text: a.since ? a.since + " 起就挂着" : "" }),
+    v ? h("span", { class: "done", text: "你选的：" + v.choice }) : h("span", { text: "还没拍板" }),
+  ];
+  card.append(h("p", { class: "q", text: a.q || a.title || "" }), h("p", { class: "meta" }, frag(meta)));
+  const opts = h("div", { class: "opts" });
+  for (const o of arr(a.options)) {
+    const chosen = !!(v && v.choice === o.label);
+    const btn = h("button", { class: "opt", type: "button", "aria-pressed": chosen ? "true" : "false" },
+      h("span", { class: "tick", text: "✓" }),
+      h("span", {},
+        h("span", { class: "lab", text: o.label || "" }),
+        o.hint ? h("span", { class: "hint", text: o.hint }) : null,
+        chosen ? h("span", { class: "mark", text: "已拍板 · " + clockText(v.at || Date.now()) + "（点别的可以改）" }) : null));
+    btn.addEventListener("click", () => castVote(btn, card, a, o.label));
+    opts.append(btn);
+  }
+  // 备注：跟着这一票一起送出去（服务端 note 最多 200 字、不许带换行，所以用单行 input）
+  const dv = drafted(a.id);
+  const noteIn = h("input", { class: "note-in", type: "text", maxlength: "500",
+    value: dv.note != null ? dv.note : (v && v.note) || "", placeholder: "想留一句备注（可不填）", "aria-label": "给这一票留个备注（可不填）" });
+  noteIn.addEventListener("input", () => { dv.note = noteIn.value; draft.set(a.id, dv); });
+  card.append(opts, h("div", { class: "note-row" },
+    h("span", { class: "note-lab", text: "备注" }),
+    noteIn,
+    v && v.note ? h("span", { class: "saved", text: "已送出：" + v.note }) : null));
+  return card;
+}
+
+async function castVote(btn, card, a, choice) {
+  const opts = btn.parentElement;
+  for (const b of opts.children) { b.setAttribute("aria-pressed", "false"); b.removeAttribute("data-busy"); }
+  btn.setAttribute("aria-pressed", "true");
+  btn.setAttribute("data-busy", "1");
+  const lab = btn.querySelector(".lab");
+  const old = lab.textContent;
+  const input = card.querySelector(".note-in");
+  const note = input ? input.value.trim().slice(0, 500) : "";
+  lab.textContent = old + " · 送出去…";
+  const res = await sendVote(a.id, choice, note, (n) => { lab.textContent = old + " · 重试中…（第 " + n + " 次）"; });
+  btn.removeAttribute("data-busy");
+  lab.textContent = old;
+  if (res.ok) {
+    draft.delete(a.id);
+    document.querySelectorAll('[data-ask="' + a.id + '"] .vote-fail').forEach((n) => n.remove());
+    const nb = buildAsk(a);            // 只重建这一张：值从 votes 里来，别的卡里正在写的字不动
+    if (card.parentElement) card.replaceWith(nb); else paint(lastPayload, true);
+    refreshCounters();
+  } else {
+    // 诚实：这一票没送出去，并把要投的内容给出来，让人能拿手贴回去
+    failBox(card, res.why, JSON.stringify(votePayload(a.id, choice, note)), () => castVote(btn, card, a, choice));
+  }
+}
+function copyText(text, btn) {
+  const done = () => { const t = btn.textContent; btn.textContent = "复制好了"; setTimeout(() => { btn.textContent = t; }, 1400); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallback());
+  else fallback();
+  function fallback() {
+    const ta = h("textarea", { style: "position:fixed;top:-1000px" });
+    ta.value = text; document.body.append(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { btn.textContent = "复制不了，手选吧"; }
+    ta.remove();
+  }
+}
+
+let lastPayload = null;
+
+/* 票据唯一派生口径：合并 asks/waitingOnYou，已投票或作废的只进历史，其余才是未定。 */
+function deriveAsks(d) {
+  const allAsks = [];
+  const seen = new Set();
+  for (const a of [...arr(d && d.asks), ...arr(d && d.waitingOnYou)]) {
+    if (!a || !a.id || seen.has(a.id)) continue;
+    seen.add(a.id);
+    allAsks.push(a);
+  }
+  const history = allAsks.filter((a) => votes.get(a.id) || supersededBy(a));
+  const asks = allAsks.filter((a) => !votes.get(a.id) && !supersededBy(a));
+  return { allAsks, asks, history };
+}
+
+function paint(d, onlyVotes) {
+  lastPayload = d;
+  const now = new Date();
+  const gap = minutesAgo(d.updatedAt || "");
+  const stale = gap !== null && gap >= 30;
+
+  el("title").textContent = d.title || "述洞 · 监工台";
+  const sub = el("subtitle");
+  sub.textContent = d.subtitle || "";
+  sub.hidden = !d.subtitle;                       // 数据里没有就不占地方
+  el("goal").textContent = d.goal || "";
+  if (document.title !== (d.title || "述洞 · 监工台")) document.title = (d.title || "述洞 · 监工台");
+
+  const fresh = el("fresh"), up = el("updated");
+  fresh.hidden = false;
+  fresh.setAttribute("data-stale", stale ? "1" : "0");
+  el("freshText").textContent = snap() ? "内联快照（看板不联网）" : (stale ? "这块板子不是实时的" : "实时（每 5 秒自己读一次）");
+  up.textContent = "";
+  add(up,
+    h("span", { text: (snap() ? "内联快照 · 更新于 " : "最后更新 ") + (d.updatedAt || "（没写时间）") }),
+    gap !== null ? h("span", { text: " · " + humanGap(gap) + (d.updatedBy ? " · " + d.updatedBy + " 维护" : "") }) : null,
+    stale ? h("span", { class: "warn", text: " —— 超过半小时没动过了，先别当现在看。" }) : null);
+
+  // 所有需要你处理的卡先合并去重；已投票（包括 waitingOnYou 里的行动项）统一进入历史。
+  const { allAsks, asks, history } = deriveAsks(d);
+  const undecided = asks.length;
+  const queued = arr(d.queued), owed = arr(d.owed), done = arr(d.done);
+  const nowList = arr(d.now);
+  const Z = Object.fromEntries(ZONES.map((z) => [z.id, z]));   // 按 id 取分区，别拿数组下标当契约
+
+  // 锚点导航
+  const nav = el("navInner");
+  nav.textContent = "";
+  const counts = { ask: asks.length, now: nowList.length, queued: queued.length, done: done.length, owed: owed.length, path: arr(d.milestones).length, reports: arr(d.reports).length, crew: arr(d.crew).length };
+  for (const z of ZONES) {
+    nav.append(h("a", { href: "#" + z.id, "data-wait": (z.id === "ask" && undecided > 0) ? "1" : "0" },
+      h("span", { text: z.nav || z.title }), h("span", { class: "n", text: String(counts[z.id] ?? 0) })));
+  }
+
+  // 专属那一屏里只有要你定的事：锚点导航不进来
+  el("nav").hidden = asksMode();
+  document.body.classList.toggle("asks-screen", asksMode());
+  updateGate(asks, undecided);
+  if (asksMode()) { paintAsks(d, asks); paintFoot(d); return; }
+
+  if (onlyVotes) {                       // 只重画拍板区，别的别抖
+    const zb = el("zb-ask");
+    if (zb) {
+      zb.textContent = "";
+      askZoneInto(zb, asks);
+      const n = document.querySelector("#ask .n");
+      if (n) n.textContent = String(asks.length);
+    }
+    return;
+  }
+
+  zoneIndex = 0;
+  const main = el("main");
+  const scrollY = window.scrollY;
+  main.textContent = "";
+  painted++;
+  if (painted === 1) {                      // 只有第一遍有入场动画
+    main.classList.add("boot");
+    setTimeout(() => main.classList.remove("boot"), 1400);
+  }
+
+  // 第一屏：等你拍板 + 现在在做的
+  const askZ = zoneShell(Z.ask), nowZ = zoneShell(Z.now);
+  askZ.body.className = "zb one";
+  nowZ.body.className = "zb one";   // 右栏一列：卡片宽一点好读，也把第一屏的左右高度拉平
+  const first = h("div", { class: "first" }, askZ.sec, nowZ.sec);
+  main.append(first);
+  askZoneInto(askZ.body, asks);
+  askZ.n.textContent = String(asks.length);
+  for (const t of nowList) nowZ.body.append(taskCard(t, { hideState: false }));
+  nowZ.n.textContent = String(nowList.length);
+
+  // 其余分区
+  const queueZ = zoneShell(Z.queued);
+  for (const t of queued) queueZ.body.append(taskCard(t));
+  queueZ.n.textContent = String(queued.length);
+
+  // 做完的：34 件全在数据里，一条都不许藏 —— 最近 8 件摊开，其余折在「更早」里
+  const doneZ = zoneShell(Z.done);
+  const doneHead = done.slice(0, 8), doneRest = done.slice(8);
+  for (const t of doneHead) doneZ.body.append(taskCard(t));
+  if (!done.length) doneZ.body.append(h("p", { class: "empty", text: "还没有做完的活。" }));
+  if (doneRest.length) doneZ.body.append(h("div", { style: "grid-column:1/-1" },
+    h("details", { class: "more" },
+      h("summary", { text: "更早做完的 " + doneRest.length + " 件" }),
+      h("div", { class: "zb" }, frag(doneRest.map((t) => taskCard(t)))))));
+  doneZ.n.textContent = String(done.length);
+
+  const owedZ = zoneShell(Z.owed);
+  owedZ.body.className = "zb one";
+  for (const o of owed) owedZ.body.append(h("div", { class: "owe" }, h("span", { class: "q", text: o.q || "" }), h("span", { class: "since", text: o.since || "" })));
+  if (!owed.length) owedZ.body.append(h("p", { class: "empty", text: "没有欠着的事。" }));
+  owedZ.n.textContent = String(owed.length);
+
+  const pathZ = zoneShell(Z.path);
+  pathZ.body.className = "path";
+  for (const m of arr(d.milestones)) pathZ.body.append(h("div", { class: "mile" }, h("b", { text: m.title || "" }), m.note ? h("p", { class: "note", text: m.note }) : null));
+  pathZ.n.textContent = String(arr(d.milestones).length);
+
+  const repZ = zoneShell(Z.reports);
+  const reps = arr(d.reports);
+  const head3 = reps.slice(0, 3), rest = reps.slice(3);
+  for (const r of head3) repZ.body.append(repCard(r));
+  if (!reps.length) repZ.body.append(h("p", { class: "empty", text: "还没有汇报。" }));
+  if (rest.length) {
+    const more = h("details", { class: "more" },
+      h("summary", { text: "更早的 " + rest.length + " 条" }),
+      h("div", { class: "zb" }, frag(rest.map((r) => repCard(r)))));
+    repZ.body.append(h("div", { style: "grid-column:1/-1" }, more));
+  }
+  repZ.n.textContent = String(reps.length);
+
+  const crewZ = zoneShell(Z.crew);
+  crewZ.body.classList.add("crew-body");
+  for (const c of arr(d.crew)) {
+    const key = OWNER[c.name] ? c.name : (c.key || c.name);
+    const tasks = Array.isArray(c.tasks) ? c.tasks.filter((task) => typeof task === "string" && task.trim()) : [];
+    const activity = crewActivity(c.name, reps);
+    crewZ.body.append(h("article", { class: "card crew" },
+      h("h3", {}, h("span", { class: "who", style: "--c:" + (OWNER[key] || "var(--fg-3)") }, h("i"), h("span", { text: c.name || "" }))),
+      h("p", { class: "role", text: c.role || "" }),
+      c.scope ? h("p", { class: "scope", text: c.scope }) : null,
+      tasks.length ? h("div", { class: "crew-tasks", "aria-label": "任务表" }, frag(tasks.map((task, i) => h("div", { class: "crew-task" }, h("span", { class: "tag", text: i === 0 ? "手上" : "排队" }), h("span", { text: task }))))) : null,
+      h("p", { class: "crew-activity" + (activity.quiet ? " quiet" : ""), text: activity.text, "aria-label": "最近汇报" })));
+  }
+  crewZ.n.textContent = String(arr(d.crew).length);
+
+  main.append(queueZ.sec, doneZ.sec, owedZ.sec, pathZ.sec, repZ.sec, crewZ.sec);
+  if (scrollY) window.scrollTo(0, scrollY);
+
+  paintFoot(d);
+}
+
+function paintFoot(d) {
+  // 页脚：绝不藏"这板子是手填的"
+  const foot = el("foot");
+  foot.textContent = "";
+  foot.append(
+    h("p", {}, h("b", { text: "这块板子由 Lead 手填" }), h("span", { text: (snap() ? " —— 数据就在这份文件里（内联快照）" : " —— 数据在 board.json") + "，不是自动统计出来的。" })),
+    snap()
+      ? h("p", { class: "hand", text: "你打开的是内联快照：看板数据就在这个文件里（" + (d.updatedAt || "?") + "），双击就能看。服务起着的话，还会顺手把你的票读回来一次；没起也不影响看。实时的那份在 /progress/index.html。" })
+      : h("p", { class: "hand", text: "这是实时那份：每 5 秒读一次 board.json。想单开、离线看，用 tools/board.mjs 生成的 board.html。" }),
+    h("p", { text: "页面本身不产生任何数据；你在这儿写下的每一行都要你自己按下去才送出去。" }),
+    h("p", { text: "页面版本 " + PAGE_VERSION + "（发货时间戳，改一次换一次）" }));
+}
+
+/* 板子第一屏：投票出整卡，勾选/写一段只列一行 —— 真去编辑在专属那一屏（#asks） */
+function decisionHistoryCard(d, a) {
+  const q = a && (a.q || a.title) ? (a.q || a.title) : "已定事项：" + d.id;
+  return h("article", { class: "ask is-decided history-card", "data-ask": d.id },
+    h("p", { class: "q", text: q }),
+    h("p", { class: "meta" }, frag([
+      h("span", { class: "tid", text: d.id }),
+      h("span", { class: "done", text: "已拍板：" + (d.choice || "text") }),
+      d.at ? h("span", { text: clockText(d.at) }) : null,
+    ])),
+    d.note ? h("p", { class: "note", text: "备注：" + d.note }) : null);
+}
+function historyCards(asks) {
+  const byId = new Map(asks.map((a) => [a.id, a]));
+  return decisions.filter((d) => d && d.id).map((d) => decisionHistoryCard(d, byId.get(d.id)));
+}function askZoneInto(box, asks) {
+  box.textContent = "";
+  const derived = deriveAsks(lastPayload || {});
+  const history = derived.history;
+  const historyCardsNow = historyCards(derived.allAsks);
+  if (!asks.length) box.append(h("p", { class: "empty", text: "现在没有等你定的事。" }));
+  const votesOnly = asks.filter((a) => (a.kind || "vote") === "vote");
+  const rest = asks.filter((a) => (a.kind || "vote") !== "vote" && !supersededBy(a));
+  for (const a of votesOnly) box.append(buildAsk(a));   // 走 buildAsk：作废态与题面图都在这一条链子上
+  boardPointer(box, rest);  if (historyCardsNow.length) box.append(h("details", { class: "more history" }, h("summary", { text: "历史票 · " + historyCardsNow.length + " 张" }), h("div", { class: "zb" }, frag(historyCardsNow))));
+}
+function boardPointer(box, rest) {
+  for (const a of rest) {
+    const kind = (a.kind || "vote") === "checklist" ? "勾选" : "写一段";
+    box.append(h("div", { class: "more-asks" },
+      h("span", { class: "k", text: kind }),
+      h("span", { class: "t", text: a.q || a.title || "" }),
+      h("button", { type: "button", class: "gate-inline", text: "去定", onclick: () => { location.hash = "#asks"; } })));
+  }
+}
+function askInto(box, asks) {
+  box.textContent = "";
+  const derived = deriveAsks(lastPayload || {});
+  const history = derived.history;
+  const historyCardsNow = historyCards(derived.allAsks);
+  if (!asks.length) box.append(h("p", { class: "empty", text: "现在没有等你定的事。" }));
+  for (const a of asks) box.append(buildAsk(a));
+}
+
+/* ── 三种卡：vote / checklist / text ───────────────────────── */
+/* 票面里可选的一张图：board.json 里写 "image": "task25-avatars.png"（路径相对 web/public/progress/）。
+   只认本地相对路径 —— 不走网络；file:// 单文件版里由 tools/board.mjs 换成 data URI 才显示得出来。 */
+const IMG_OK = /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/;
+const DATA_OK = /^data:image[/][a-z+]+;base64,[A-Za-z0-9+/=]+$/;   // 单文件快照把图内联成 data: 时也要显示（仍然拒绝 http/https 与 ..）
+function askFigure(a) {
+  const src = String((a && a.image) || "").trim();
+  if (!src || src.indexOf("..") >= 0 || /^https?:/i.test(src) || !(IMG_OK.test(src) || DATA_OK.test(src))) return null;
+  const fig = h("figure", { class: "ask-fig" },
+    h("img", { src: src, alt: a.imgAlt || a.q || a.title || "这一票的参考图", decoding: "async" }));
+  const img = fig.querySelector("img");
+  img.addEventListener("error", () => fig.remove());   // 图没了就把整块撤掉，不留破图
+  return fig;
+}
+/* 数据里带 supersededBy 的题＝已经作废（例：d3 被 d3b 取代）。只改渲染：灰掉、写明改投谁、不许投。
+   一个口子管住三种卡：vote / checklist / text 都走 buildAsk。 */
+function supersededBy(a) {
+  const s = a && a.supersededBy;
+  return typeof s === "string" && s.trim() ? s.trim() : "";
+}
+function goneCard(a, gone) {
+  return h("article", { class: "ask is-superseded", "data-ask": a.id },
+    h("p", { class: "q", text: a.q || a.title || "" }),
+    h("p", { class: "meta" }, frag([
+      a.id ? h("span", { class: "tid", text: a.id }) : null,
+      a.since ? h("span", { text: a.since + " 起就挂着" }) : null,
+      h("span", { text: "已作废" }),
+    ])),
+    h("div", { class: "gone" },
+      h("span", { class: "k", text: "已作废" }),
+      h("span", { class: "t", text: "这题不算了，请改投 " + gone + "。" })));
+}
+// 一张没写选项的题，以前渲染出一个送不出去的备注框（备注只能跟着某个选项一起送出去）。
+// 没选项就是让人自己写：走 textCard，送出的是 choice:"text" + 正文。
+const askKind = (a) => (a && a.kind) || (arr(a.options).length ? "vote" : "text");
+function buildAsk(a) {
+  const gone = supersededBy(a);
+  if (gone) return goneCard(a, gone);          // 作废的题不给任何可点的东西
+  const kind = askKind(a);
+  const card = kind === "checklist" ? checkCard(a) : kind === "text" ? textCard(a) : askCard(a);
+  const fig = askFigure(a);            // 就摆在选项上方：题面那行之后、选项/勾选/输入框之前
+  if (fig) { const head = card.querySelector(".meta"); if (head) head.after(fig); else card.prepend(fig); }
+  return card;
+}
+function currentAsks() {
+  const d = lastPayload || {};
+  return Array.isArray(d.asks) ? d.asks : arr(d.waitingOnYou);
+}
+function updateGate(asks, undecided) {
+  const gate = el("gate");
+  if (!gate) return;
+  const onAsks = asksMode();
+  gate.hidden = !asks.length && !onAsks;
+  gate.setAttribute("data-mode", onAsks ? "asks" : "board");
+  gate.setAttribute("href", onAsks ? "#" : "#asks");
+  el("gateText").textContent = onAsks ? "← 回板子" : "要你定的事";
+  const gn = el("gateN");
+  gn.hidden = onAsks;
+  gn.textContent = undecided ? undecided + " 件在等你" : "都定完了";
+}
+function refreshCounters() {
+  const { asks } = deriveAsks(lastPayload || {});
+  const undecided = asks.length;
+  const link = document.querySelector('#navInner a[href="#ask"]');
+  if (link) link.setAttribute("data-wait", undecided > 0 ? "1" : "0");
+  const n = document.querySelector("#ask .n");
+  if (n) n.textContent = String(asks.length);
+  updateGate(asks, undecided);
+}
+/* 专属那一屏：只有要你定 / 要你干的事 */
+let lastAsksSig = "";
+/* 还没送出去的东西（正在勾的、正在写的）存在这儿 —— 5 秒一次的读票会把这一屏重画，草稿不能跟着没了 */
+const draft = new Map();          // askId -> { picked: Set<string>|null, note: string|null }
+function drafted(id) { let d = draft.get(id); if (!d) { d = { picked: null, note: null }; draft.set(id, d); } return d; }
+function paintAsks(d, asks) {
+  const main = el("main");
+  const sig = JSON.stringify(asks) + "|" + JSON.stringify([...votes]);
+  if (sig === lastAsksSig && el("zb-asks")) {   // 板子变了但"要你定的事"没变：别把正在写的字抖掉
+    const n = document.querySelector("#asks .n");
+    if (n) n.textContent = String(asks.length);
+    return;
+  }
+  lastAsksSig = sig;
+  const scrollY = window.scrollY;
+  const act = document.activeElement;
+  const keep = act && act.closest && act.closest(".ask")
+    ? { id: act.closest(".ask").getAttribute("data-ask"), cls: (act.className || "").split(" ")[0], pos: act.selectionStart != null ? act.selectionStart : null }
+    : null;
+  main.textContent = "";
+  const z = zoneShell({ id: "asks", title: "要你定的事", hint: "只有你能定、只有你能干的事，都在这儿。定完这一屏就干净了 —— 板子上的其它东西在右上角那颗「← 回板子」。" });
+  z.sec.classList.add("asks");
+  z.body.className = "zb one";
+  z.n.textContent = String(asks.length);
+  main.append(z.sec);
+  askInto(z.body, asks);
+  if (keep) {
+    const c = main.querySelector('.ask[data-ask="' + keep.id + '"]');
+    const f = c ? c.querySelector("." + keep.cls) : null;
+    if (f) { f.focus(); if (keep.pos != null && f.setSelectionRange) { try { f.setSelectionRange(keep.pos, keep.pos); } catch (e) { /* 只读控件就算了 */ } } }
+  }
+  main.classList.add("boot");                   // 进这一屏放一次入场
+  setTimeout(() => main.classList.remove("boot"), 1400);
+  if (scrollY) window.scrollTo(0, scrollY);
+}
+function askMeta(a) {
+  const v = votes.get(a.id);
+  return h("p", { class: "meta" },
+    h("span", { class: "tid", text: a.id || "" }),
+    a.since ? h("span", { text: a.since + " 起就挂着" }) : null,
+    v ? h("span", { class: "done", text: sentLine(a, v) }) : h("span", { text: "还没定" }));
+}
+function sentLine(a, v) {
+  const kind = askKind(a);
+  if (kind === "checklist") {
+    const zero = String(v.choice || "") === "0";
+    const n = zero ? 0 : String(v.choice || "").split(",").filter(Boolean).length;
+    return "你勾了 " + n + " 条" + (v.note ? "：「" + v.note + "」" : "");
+  }
+  if (kind === "text") return "你写过了" + (v.note ? "：「" + v.note + "」" : "");
+  return "你选的：" + v.choice;
+}
+function checkCard(a) {
+  const v = votes.get(a.id);
+  const d = drafted(a.id);
+  const picked = d.picked ? new Set(d.picked) : new Set(String((v && v.choice) || "").split(",").filter((x) => /^\d+$/.test(x)));
+  const card = h("article", { class: "ask" + (v ? " is-decided" : ""), "data-ask": a.id });
+  card.append(h("p", { class: "q", text: a.q || a.title || "" }), askMeta(a));
+  for (const g of arr(a.groups)) {
+    const box = h("div", { class: "grp" },
+      h("p", { class: "post" }, h("span", { class: "postn", text: "第 " + (g.post || "?") + " 帖" })),
+      g.text ? h("p", { class: "post-text", text: g.text }) : null);
+    const items = h("div", { class: "items" });
+    for (const it of arr(g.items)) {
+      const key = String(it.i);
+      const btn = h("button", { class: "item", type: "button", "aria-pressed": picked.has(key) ? "true" : "false", "data-i": key },
+        h("span", { class: "tick", text: "✓" }),
+        h("span", { class: "body" },
+          h("span", { class: "by", text: (it.who || "") + " · 第 " + key + " 条" }),
+          h("span", { class: "txt", text: it.text || "" })));
+      btn.addEventListener("click", () => {
+        const on = btn.getAttribute("aria-pressed") !== "true";
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        d.picked = new Set([...card.querySelectorAll('.item[aria-pressed="true"]')].map((b) => b.getAttribute("data-i")));
+        draft.set(a.id, d);
+        sync();
+      });
+      items.append(btn);
+    }
+    box.append(items);
+    card.append(box);
+  }
+  const noteIn = h("input", { class: "note-in", type: "text", maxlength: "500", value: d.note != null ? d.note : (v && v.note) || "",
+    placeholder: "为什么不像真人？一句话就够（可不填）", "aria-label": "留一句话说明（可不填）" });
+  noteIn.addEventListener("input", () => { d.note = noteIn.value; draft.set(a.id, d); });
+  const send = h("button", { class: "send", type: "button", text: a.submit || "送出去" });
+  const picked0 = h("span", { class: "picked", text: "" });
+  const sent = h("p", { class: "sent", role: "status", "aria-live": "polite", text: v ? "已送到 · " + clockText(v.at || Date.now()) : "" });
+  card.append(h("div", { class: "ask-actions" }, send, picked0),
+    h("div", { class: "note-row" }, h("span", { class: "note-lab", text: "一句话" }), noteIn), sent);
+  const picks = () => [...card.querySelectorAll('.item[aria-pressed="true"]')].map((b) => b.getAttribute("data-i"));
+  function sync() {
+    const k = picks();
+    picked0.textContent = k.length ? "勾了 " + k.length + " 条" : "一条都没勾（＝全都像真人）";
+    send.textContent = (a.submit || "送出去") + (k.length ? " · " + k.length + " 条" : " · 一条都没勾");
+  }
+  sync();
+  const payload = () => { const k = picks(); return { choice: k.length ? k.join(",") : "0", note: noteIn.value.trim().slice(0, 500) }; };
+  const run = () => { const p = payload(); submitAsk(card, a, p.choice, p.note, { send: send, sent: sent, retry: run }); };
+  send.addEventListener("click", run);
+  return card;
+}
+function textCard(a) {
+  const v = votes.get(a.id);
+  const card = h("article", { class: "ask" + (v ? " is-decided" : ""), "data-ask": a.id });
+  card.append(h("p", { class: "q", text: a.q || a.title || "" }), askMeta(a));
+  const d = drafted(a.id);
+  const ta = h("textarea", { class: "text-in", maxlength: "500", "aria-label": (a.q || "写点什么"), placeholder: "写在这儿（最多 500 字）" });
+  ta.value = d.note != null ? d.note : (v && v.note) || "";
+  const send = h("button", { class: "send", type: "button", text: a.submit || "送出去" });
+  const count = h("span", { class: "picked", text: "" });
+  const sent = h("p", { class: "sent", role: "status", "aria-live": "polite", text: v ? "已送到 · " + clockText(v.at || Date.now()) : "" });
+  card.append(h("div", { class: "ask-text" }, ta,
+      h("p", { class: "hint", text: "最多 500 字。服务端只收单行：换行会被并成空格。" })),
+    h("div", { class: "ask-actions" }, send, count), sent);
+  const body = () => ta.value.replace(/[\r\n]+/g, " ").trim().slice(0, 500);
+  function sync() { const n = body().length; count.textContent = n ? n + " 字" : "还没写"; send.disabled = !n; }
+  sync();
+  ta.addEventListener("input", () => { d.note = ta.value; draft.set(a.id, d); sync(); });
+  const run = () => submitAsk(card, a, "text", body(), { send: send, sent: sent, retry: run });
+  send.addEventListener("click", run);
+  return card;
+}
+async function submitAsk(card, a, choice, note, ui) {
+  ui.send.disabled = true;
+  ui.sent.textContent = "送出去…";
+  const res = await sendVote(a.id, choice, note, (n) => { ui.sent.textContent = "重试中…（第 " + n + " 次）"; });
+  ui.send.disabled = false;
+  if (res.ok) {
+    draft.delete(a.id);
+    ui.sent.textContent = "已送到 · " + clockText(Date.now());
+    const nb = buildAsk(a);                      // 只重建这一张：别的卡里正在写的字不动
+    if (card.parentElement) card.replaceWith(nb);
+    refreshCounters();
+  } else {
+    ui.sent.textContent = "";
+    failBox(card, res.why, JSON.stringify(votePayload(a.id, choice, note)), ui.retry);
+  }
+}
+function failBox(card, why, line, retry) {
+  const box = h("div", { class: "vote-fail" },
+    h("p", { class: "msg", text: "这一票没送出去 —— " + (why || netWhy()) }),
+    h("p", { class: "copyline" },
+      retry ? h("button", { type: "button", text: "再送一次", onclick: () => { box.remove(); retry(); } }) : null,
+      h("button", { type: "button", text: "复制这一票", onclick: (ev) => copyText(line, ev.currentTarget) })),
+    h("p", { class: "copyline" }, h("code", { text: line })));
+  card.querySelectorAll(".vote-fail").forEach((n) => n.remove());
+  card.append(box);
+  return box;
+}
+
+function repCard(r) {
+  const gap = minutesAgo(r.at || "");
+  return h("article", { class: "card rep" },
+    h("h3", { text: r.title || "(没写标题)" }),
+    h("p", { class: "meta" }, r.at ? h("span", { text: r.at + (gap !== null ? " · " + humanGap(gap) : "") }) : null),
+    r.text ? h("p", { class: "text", text: r.text }) : null);
+}
+
+/* ── 取数 ───────────────────────────────────────── */
+function netError(msg) {
+  const box = el("main");
+  const old = box.querySelector(".net");
+  if (old) old.remove();
+  box.prepend(h("div", { class: "net", text: msg }));
+}
+
+async function loadDecisions() {
+  // 读票和写票同一个 API 口子（同一个 api()：先同源、快照退 8787、可被 __BOARD_API__ 覆盖）
+  try {
+    const j = await api("/board/decisions");
+    applyDecisions(j && j.decisions);
+  } catch (e) {
+    // 读不到就用内联票（快照页本来就带一份）；读票失败不该妨碍看看板
+    if (Array.isArray(window.__BOARD_DECISIONS__)) applyDecisions(window.__BOARD_DECISIONS__);
+  }
+}
+
+async function getBoard() {
+  const r = await fetch("board.json", { cache: "no-store" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+
+async function refresh(force) {
+  if (snap()) {                                 // 单开快照：看板数据就在这份文件里，不联网取
+    applyDecisions(window.__BOARD_DECISIONS__); // 先用文件里带的那份（服务不在也能看）
+    paint(window.__BOARD__ || {});
+    // 再向活着的服务问一次真票（服务端已给 /api/board/* 开了 CORS，null 源＝单开这版）：
+    // 问到了就重画 —— 否则刷新一次「已拍板」就没了（只看内联那份是旧的/可能是空的）
+    const wasVotes = JSON.stringify([...votes]);
+    loadDecisions().then(() => {
+      if (JSON.stringify([...votes]) !== wasVotes) paint(window.__BOARD__ || {});
+    });
+    return;
+  }
+  let d;
+  try {
+    d = await getBoard();
+  } catch (e) {
+    if (!lastData) netError("读不到 board.json（" + ((e && e.message) || "不知道为啥") + "）—— 这页读的是同目录下的那个文件。");
+    return;
+  }
+  try { await loadDecisions(); } catch (e) {}   // 读票失败不影响看板
+
+  const sig = JSON.stringify(d), dsig = JSON.stringify([...votes]);
+  if (!force && sig === lastData && dsig === lastDec) return;   // 没变就不动 DOM：5 秒轮询不会抖
+  const changed = !!lastData && sig !== lastData;
+  lastData = sig; lastDec = dsig;
+  paint(d);                                     // 这里抛错就让它抛到控制台，不许再吞
+  if (changed) {
+    const f = el("fresh");
+    if (f) { f.style.animation = "none"; void f.offsetWidth; f.style.animation = "flash .9s ease"; }
+  }
+}
+
+function boot() {
+  refresh(true);
+  if (snap()) return;                       // 单开快照：数据内联，不轮询、不联网
+  setInterval(() => refresh(false), 5000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(false); });
+}
+// 专属那一屏走 hash：切回来/切回去都拿最近一次的数据重画，不重新取数
+window.addEventListener("hashchange", () => { if (lastPayload) paint(lastPayload); });
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+else boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "shudong",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:server": "pnpm --filter @shudong/server dev",
+    "dev:web": "pnpm --filter @shudong/web dev",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

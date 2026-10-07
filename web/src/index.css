@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0e1014;
+  --color-card: #161a21;
+  --color-card-2: #1c212a;
+}
+
+:root {
+  /* 让原生控件（滚动条、自动填充、日期选择）也跟着走深色 */
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-ink);
+  /* 洞口的光：从上方漏进来，越往下越暗。静态的一张底，不动。 */
+  background-image: radial-gradient(120% 55% at 50% -10%, rgba(255, 255, 255, 0.05), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: #d9dde5;
+  font-family: ui-sans-serif, system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #2b313a transparent;
+}
+
+/* 键盘焦点：所有能点的东西都有同一个环，别只在个别按钮上有 */
+:where(button, a, input, textarea, [role="button"]):focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.3);
+  outline-offset: 2px;
+}
+
+/*
+ * 洞壁：中栏左边缘那条竖脊。
+ * 它替三栏之间画一道"墙" —— 上面亮、往下走暗，说明光是从洞口漏下来的。
+ * 窄屏没有左栏，这条脊线就没有意义，直接藏掉。
+ */
+.sd-wall {
+  position: relative;
+}
+.sd-wall::before {
+  content: '';
+  position: absolute;
+  left: -1.375rem;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 255, 255, 0.1) 6%,
+    rgba(255, 255, 255, 0.045) 55%,
+    transparent
+  );
+}
+@media (max-width: 1279px) {
+  .sd-wall::before {
+    display: none;
+  }
+}
+
+/* "正在输入" 的三个点 —— 只剩单聊在用：帖子里回帖是一条条落下来的楼层，不吐字。 */
+@keyframes sd-blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+.sd-dot {
+  animation: sd-blink 1.2s infinite;
+}
+
+/* 打字光标：只有单聊里还在吐字的那一行才有。这就是"他正在打"本身，不是装饰。 */
+@keyframes sd-caret {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+.sd-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  border-radius: 1px;
+  vertical-align: -0.15em;
+  animation: sd-caret 1s steps(1, end) infinite;
+}
+
+/* 输入框跟着字长高，长帖不用挤在一个小框里；不支持的浏览器就是固定高度 */
+.sd-composer {
+  field-sizing: content;
+  min-height: 5.5rem;
+  max-height: 40vh;
+}
+
+/* 新到的一楼轻微落下，别硬邦邦地跳出来 */
+@keyframes sd-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.sd-in {
+  animation: sd-in 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-dot,
+  .sd-caret,
+  .sd-in {
+    animation: none;
+  }
+}

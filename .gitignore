@@ -1,0 +1,22 @@
+node_modules/
+dist/
+data/
+logs/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+
+# 不公开：抓取语料 / QA 证据 / 团队内部板面与交接材料
+corpus/
+qa/
+team/
+board.html
+tools/board-content.json
+web/public/progress/board.json
+web/public/progress/board.json.bak
+
+.idea/
+.vscode/
+web/SITE-REVIEW.md
