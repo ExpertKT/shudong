@@ -16,6 +16,7 @@ board.html
 tools/board-content.json
 web/public/progress/board.json
 web/public/progress/board.json.bak
+HANDOFF.md
 
 .idea/
 .vscode/
